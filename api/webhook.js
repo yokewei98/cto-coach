@@ -11,10 +11,20 @@ async function sendTelegram(chatId, text) {
   params.append('chat_id', String(chatId));
   params.append('text', text);
   params.append('parse_mode', 'Markdown');
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+  const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
     method: 'POST',
     body: params,
   });
+  // If Markdown parse fails, retry as plain text
+  if (!res.ok) {
+    const plain = new URLSearchParams();
+    plain.append('chat_id', String(chatId));
+    plain.append('text', text.replace(/[*_`]/g, ''));
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      method: 'POST',
+      body: plain,
+    });
+  }
 }
 
 // --- GitHub file helpers ---
@@ -35,90 +45,97 @@ async function getFile(path) {
 async function putFile(path, content, sha, message) {
   const body = { message, content: Buffer.from(content).toString('base64') };
   if (sha) body.sha = sha;
-  await fetch(
-    `https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`,
-    {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${GITHUB_PAT}`,
-        Accept: 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    }
-  );
+  await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${GITHUB_PAT}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
 }
 
 async function deleteFile(path, sha, message) {
-  await fetch(
-    `https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`,
-    {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${GITHUB_PAT}`,
-        Accept: 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ message, sha }),
-    }
-  );
+  await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${GITHUB_PAT}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ message, sha }),
+  });
 }
 
-// --- Gemini ---
+// --- Get last delivered topic from topics_log.md ---
 
-async function callGemini(prompt) {
+async function getLastTopic() {
+  const file = await getFile('topics_log.md');
+  if (!file) return null;
+  const rows = file.content.split('\n').filter(l => l.startsWith('|') && !l.includes('Date') && !l.includes('---'));
+  if (!rows.length) return null;
+  const last = rows[rows.length - 1];
+  const cols = last.split('|').filter(Boolean);
+  return cols.length >= 2 ? `${cols[0]?.trim()} — ${cols[1]?.trim()}` : null;
+}
+
+// --- Gemini with JSON output ---
+
+async function processMessage(currentContext, lastTopic, userMessage) {
+  const topicLine = lastTopic
+    ? `The last daily topic delivered to Xavier was: "${lastTopic}". If he refers to "it", "that", "the topic", "today's topic" etc., he means this.`
+    : 'No daily topic has been delivered yet.';
+
+  const systemPrompt = `You are Xavier Tan's personal CTO coach. Xavier is a CTO in Kuala Lumpur, Malaysia.
+
+What you know about Xavier:
+${currentContext}
+
+${topicLine}
+
+Xavier sent you: "${userMessage}"
+
+Respond as a sharp, direct, experienced CTO coach. Be specific — not generic. Max 4 sentences unless the question genuinely needs more depth.
+
+Decide your MODE:
+- "chat": Xavier is asking a question, discussing ideas, or thinking out loud. Just reply. Do NOT touch his profile.
+- "propose": Xavier shared something profile-worthy (team size, company context, challenges, goals) without explicitly asking to save it. Reply as a coach AND end with "Want me to save this to your coaching profile? Reply yes or no."
+- "update": Xavier explicitly said to remember/note/save something. Reply and update profile immediately.
+
+Return a JSON object with these fields:
+{
+  "mode": "chat" | "propose" | "update",
+  "reply": "your reply as plain text (no markdown asterisks or underscores)",
+  "context_changed": true or false,
+  "context_summary": "one sentence describing what changed, or null",
+  "updated_context": "full updated context.md content, or null if unchanged"
+}`;
+
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.6 },
+        contents: [{ parts: [{ text: systemPrompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          responseMimeType: 'application/json',
+        },
       }),
     }
   );
+
   const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-}
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 
-async function processMessage(currentContext, userMessage) {
-  const prompt = `You are Xavier Tan's personal CTO coach. Xavier is a CTO in Kuala Lumpur, Malaysia.
-
-What you currently know about Xavier:
-<context>
-${currentContext}
-</context>
-
-Xavier's message: "${userMessage}"
-
-Decide how to respond using one of three modes:
-
-MODE "chat": Pure conversation. Xavier is asking a question, thinking out loud, or discussing ideas. Do NOT update his profile. Just reply as a great coach would.
-
-MODE "propose": Xavier shared something profile-worthy (company details, team size, current challenges, goals, preferences) but did NOT explicitly ask you to save it. Reply conversationally AND end your reply with a new line: "Want me to save that to your coaching profile? Reply yes or no."
-
-MODE "update": Xavier explicitly asked you to remember something ("remember that...", "add to my profile...", "I want to focus on...", "note that..."). Save immediately without asking.
-
-For modes "propose" and "update", produce the updated context.md incorporating the new info naturally.
-
-Reply in EXACTLY this format:
-MODE: chat|propose|update
-REPLY: <your reply — 2-5 sentences, warm and direct, plain text only, no markdown>
-CONTEXT_CHANGED: true|false
-CONTEXT_SUMMARY: <one sentence on what changed, or "no change">
----
-<full context.md content — include even if unchanged>`;
-
-  const raw = await callGemini(prompt);
-
-  const mode = raw.match(/MODE:\s*(chat|propose|update)/i)?.[1]?.toLowerCase() ?? 'chat';
-  const reply = raw.match(/REPLY:\s*([\s\S]+?)(?=\nCONTEXT_CHANGED:)/)?.[1]?.trim() ?? 'Got it.';
-  const changed = raw.match(/CONTEXT_CHANGED:\s*(true|false)/i)?.[1]?.toLowerCase() === 'true';
-  const summary = raw.match(/CONTEXT_SUMMARY:\s*(.+?)(?=\n---)/s)?.[1]?.trim() ?? 'no change';
-  const updatedContext = raw.match(/---\n([\s\S]+)/)?.[1]?.trim() ?? currentContext;
-
-  return { mode, reply, changed, summary, updatedContext };
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // If JSON parse fails, treat the raw text as the reply
+    return { mode: 'chat', reply: raw.trim() || 'I had trouble processing that. Could you rephrase?', context_changed: false };
+  }
 }
 
 // --- Commands ---
@@ -129,17 +146,15 @@ async function handleProfile(chatId) {
     return sendTelegram(chatId, "I don't have any context about you yet. Just start talking to me and I'll build up your profile.");
   }
   const lines = file.content.split('\n').filter(l => !l.startsWith('<!--') && l.trim());
-  const preview = lines.slice(0, 30).join('\n');
-  await sendTelegram(chatId, `*Your coaching profile:*\n\n${preview}`);
+  await sendTelegram(chatId, `*Your coaching profile:*\n\n${lines.slice(0, 40).join('\n')}`);
 }
 
 async function handleHistory(chatId) {
   const file = await getFile('topics_log.md');
   if (!file) return sendTelegram(chatId, 'No topics delivered yet.');
   const rows = file.content.split('\n').filter(l => l.startsWith('|') && !l.includes('Date') && !l.includes('---'));
-  if (!rows.length) return sendTelegram(chatId, 'No topics delivered yet. Your first one arrives at 8 AM tomorrow.');
-  const recent = rows.slice(-10).reverse();
-  const list = recent.map(r => {
+  if (!rows.length) return sendTelegram(chatId, 'No topics delivered yet. Your first arrives at 8 AM tomorrow.');
+  const list = rows.slice(-10).reverse().map(r => {
     const cols = r.split('|').filter(Boolean);
     return `- ${cols[0]?.trim()} — ${cols[1]?.trim()}`;
   }).join('\n');
@@ -148,14 +163,15 @@ async function handleHistory(chatId) {
 
 async function handleHelp(chatId) {
   await sendTelegram(chatId,
-    "*CTO Coach — what I can do:*\n\n" +
-    "Talk to me naturally. Ask CTO questions, share your challenges, think out loud. " +
-    "I will pick up on things worth saving to your profile and ask before I do.\n\n" +
-    "*Commands:*\n" +
-    "/profile — see what I know about you\n" +
-    "/history — see your last 10 topics covered\n" +
-    "/help — show this message\n\n" +
-    "Your daily CTO topic arrives every morning at 8 AM KL time."
+    "*CTO Coach*\n\n" +
+    "Talk to me like a trusted advisor. Ask questions, share challenges, think out loud.\n\n" +
+    "I notice things worth saving to your profile and ask before doing so. " +
+    "Or say 'remember that...' and I save it right away.\n\n" +
+    "Commands:\n" +
+    "/profile — what I know about you\n" +
+    "/history — recent topics covered\n" +
+    "/help — this message\n\n" +
+    "Daily topic: 8 AM KL every morning."
   );
 }
 
@@ -175,9 +191,9 @@ module.exports = async function handler(req, res) {
   if (text === '/start') {
     await sendTelegram(chatId,
       "Hi Xavier! I'm your CTO Coach.\n\n" +
-      "Talk to me like a trusted advisor — ask questions, share challenges, think out loud. " +
-      "I'll notice things worth remembering and ask before saving them to your profile.\n\n" +
-      "Your daily topic arrives at 8 AM every morning. Use /help to see what I can do."
+      "Ask me anything, share what's on your mind, or just think out loud. " +
+      "I'll remember what matters and ask before saving it.\n\n" +
+      "Daily topic arrives at 8 AM. Use /help to see everything I can do."
     );
     return res.status(200).end();
   }
@@ -196,38 +212,41 @@ module.exports = async function handler(req, res) {
       const ctx = await getFile('context.md');
       await Promise.all([
         putFile('context.md', proposedContext, ctx?.sha ?? null, `context: ${summary}`),
-        deleteFile('pending.json', pending.sha, 'clear: confirmation resolved'),
+        deleteFile('pending.json', pending.sha, 'clear: confirmed'),
       ]);
       await sendTelegram(chatId, `Saved. ${summary}\n\nYour daily topics will reflect this from tomorrow.`);
       return res.status(200).end();
     }
 
     if (pending && negative) {
-      await deleteFile('pending.json', pending.sha, 'clear: confirmation declined');
-      await sendTelegram(chatId, "No problem, your profile stays as is.");
+      await deleteFile('pending.json', pending.sha, 'clear: declined');
+      await sendTelegram(chatId, "No problem, profile stays as is.");
       return res.status(200).end();
     }
 
-    // Clear stale pending if user moved on
     if (pending && !affirmative && !negative) {
       await deleteFile('pending.json', pending.sha, 'clear: superseded');
     }
 
-    const ctx = await getFile('context.md');
-    const currentContext = ctx?.content ?? '# Xavier\'s CTO Context\n\n(No information yet)\n';
-    const { mode, reply, changed, summary, updatedContext } = await processMessage(currentContext, text);
+    const [ctx, lastTopic] = await Promise.all([
+      getFile('context.md'),
+      getLastTopic(),
+    ]);
 
-    if (mode === 'update' && changed) {
-      await putFile('context.md', updatedContext, ctx?.sha ?? null, `context: ${summary}`);
-      await sendTelegram(chatId, reply);
-    } else if (mode === 'propose' && changed) {
-      const pendingData = JSON.stringify({ proposedContext: updatedContext, summary });
+    const currentContext = ctx?.content ?? '# Xavier\'s CTO Context\n\n(No information yet)\n';
+    const result = await processMessage(currentContext, lastTopic, text);
+
+    const { mode, reply, context_changed, context_summary, updated_context } = result;
+
+    if (mode === 'update' && context_changed && updated_context) {
+      await putFile('context.md', updated_context, ctx?.sha ?? null, `context: ${context_summary}`);
+    } else if (mode === 'propose' && context_changed && updated_context) {
+      const pendingData = JSON.stringify({ proposedContext: updated_context, summary: context_summary });
       const existing = await getFile('pending.json');
       await putFile('pending.json', pendingData, existing?.sha ?? null, 'pending: awaiting confirmation');
-      await sendTelegram(chatId, reply);
-    } else {
-      await sendTelegram(chatId, reply);
     }
+
+    await sendTelegram(chatId, reply);
 
   } catch (err) {
     console.error(err);
