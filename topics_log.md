@@ -5,3 +5,4 @@ Each row represents a topic that has already been delivered — the agent will n
 
 | Date | Topic |
 |------|-------|
+| 2026-03-25 | The Build vs Buy Decision Framework |
