@@ -68,6 +68,30 @@ async function deleteFile(path, sha, message) {
   });
 }
 
+// --- Conversation history ---
+
+const MAX_HISTORY_ENTRIES = 20; // 10 back-and-forth exchanges
+
+async function getConversationHistory() {
+  const file = await getFile('conversation_history.json');
+  if (!file) return { history: [], sha: null };
+  try {
+    return { history: JSON.parse(file.content), sha: file.sha };
+  } catch {
+    return { history: [], sha: file.sha };
+  }
+}
+
+async function saveConversationHistory(history, sha) {
+  const trimmed = history.slice(-MAX_HISTORY_ENTRIES);
+  await putFile(
+    'conversation_history.json',
+    JSON.stringify(trimmed, null, 2),
+    sha ?? null,
+    'history: update'
+  );
+}
+
 // --- Get last delivered topic from topics_log.md ---
 
 async function getLastTopic() {
@@ -82,21 +106,21 @@ async function getLastTopic() {
 
 // --- Gemini with JSON output ---
 
-async function processMessage(currentContext, lastTopic, userMessage) {
+async function processMessage(currentContext, lastTopic, history, userMessage) {
   const topicLine = lastTopic
     ? `The last daily topic delivered to Xavier was: "${lastTopic}". If he refers to "it", "that", "the topic", "today's topic" etc., he means this.`
     : 'No daily topic has been delivered yet.';
 
-  const systemPrompt = `You are Xavier Tan's personal CTO coach. Xavier is a CTO in Kuala Lumpur, Malaysia.
+  const systemInstruction = `You are Xavier Tan's personal CTO coach. Xavier is a CTO in Kuala Lumpur, Malaysia.
 
 What you know about Xavier:
 ${currentContext}
 
 ${topicLine}
 
-Xavier sent you: "${userMessage}"
-
 Respond as a sharp, direct, experienced CTO coach. Be specific — not generic. Max 4 sentences unless the question genuinely needs more depth.
+
+Use the conversation history to understand context. Short replies like "yes", "no", "explain more", "go on" always refer to the most recent exchange.
 
 Decide your MODE:
 - "chat": Xavier is asking a question, discussing ideas, or thinking out loud. Just reply. Do NOT touch his profile.
@@ -112,13 +136,19 @@ Return a JSON object with these fields:
   "updated_context": "full updated context.md content, or null if unchanged"
 }`;
 
+  const contents = [
+    ...history.map(h => ({ role: h.role, parts: [{ text: h.text }] })),
+    { role: 'user', parts: [{ text: userMessage }] },
+  ];
+
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: systemPrompt }] }],
+        system_instruction: { parts: [{ text: systemInstruction }] },
+        contents,
         generationConfig: {
           temperature: 0.7,
           responseMimeType: 'application/json',
@@ -228,13 +258,14 @@ module.exports = async function handler(req, res) {
       await deleteFile('pending.json', pending.sha, 'clear: superseded');
     }
 
-    const [ctx, lastTopic] = await Promise.all([
+    const [ctx, lastTopic, { history, sha: historySha }] = await Promise.all([
       getFile('context.md'),
       getLastTopic(),
+      getConversationHistory(),
     ]);
 
     const currentContext = ctx?.content ?? '# Xavier\'s CTO Context\n\n(No information yet)\n';
-    const result = await processMessage(currentContext, lastTopic, text);
+    const result = await processMessage(currentContext, lastTopic, history, text);
 
     const { mode, reply, context_changed, context_summary, updated_context } = result;
 
@@ -247,6 +278,14 @@ module.exports = async function handler(req, res) {
     }
 
     await sendTelegram(chatId, reply);
+
+    // Persist conversation history (fire and forget — don't block response)
+    const updatedHistory = [
+      ...history,
+      { role: 'user', text },
+      { role: 'model', text: reply },
+    ];
+    saveConversationHistory(updatedHistory, historySha).catch(() => {});
 
   } catch (err) {
     console.error(err);
