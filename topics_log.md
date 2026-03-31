@@ -11,3 +11,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-03-28 | Technical Debt: Quantifying and Communicating It to Stakeholders |
 | 2026-03-29 | Engineering OKRs: Connecting Technical Work to Business Outcomes |
 | 2026-03-30 | Cloud Cost Optimisation: FinOps Principles Every CTO Must Know |
+| 2026-03-31 | Evaluating AI Tools: A Framework for CTOs |
