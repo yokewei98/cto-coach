@@ -13,3 +13,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-03-30 | Cloud Cost Optimisation: FinOps Principles Every CTO Must Know |
 | 2026-03-31 | Evaluating AI Tools: A Framework for CTOs |
 | 2026-04-01 | Communicating Engineering to the Board |
+| 2026-04-02 | Incident Management & Blameless Post-Mortems |
