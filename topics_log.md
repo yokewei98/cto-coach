@@ -14,3 +14,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-03-31 | Evaluating AI Tools: A Framework for CTOs |
 | 2026-04-01 | Communicating Engineering to the Board |
 | 2026-04-02 | Incident Management & Blameless Post-Mortems |
+| 2026-04-03 | Shifting Security Left: The Secure SDLC |
