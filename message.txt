@@ -1,0 +1,27 @@
+🎓 *CTO Daily — Engineering Culture: How CTOs Build It Intentionally*
+
+*Why this matters*
+Culture is the operating system of your engineering org — it runs silently in the background and determines how decisions get made when you are not in the room. Most CTOs inherit a culture by accident and only notice it when something goes wrong: slow velocity, passive teams, or talent walking out the door. The CTO who shapes culture deliberately has a compounding advantage over every other technical lever.
+
+*The core concept*
+Engineering culture is the sum of what you reward, what you tolerate, and what you model. The classic mistake is confusing culture with perks or values-on-a-wall. Real culture lives in your daily behaviours.
+
+A useful framework is the *Culture Stack*:
+1. *Rituals* — recurring events that reinforce values (blameless retros, demo days, internal tech talks)
+2. *Norms* — unwritten rules that govern behaviour (is it safe to say "I don't know"? Do PMs interrupt engineers mid-sprint?)
+3. *Incentives* — what actually gets rewarded at review time (heroics vs. sustainable delivery, individual output vs. team enablement)
+4. *Stories* — the legends the team tells (who got promoted and why, how the last big incident was handled)
+
+Example: If you say you value psychological safety but your incident post-mortems still name individuals who made mistakes, your incentives are overriding your stated values. The stories engineers tell each other about that incident will define culture far more than any handbook page.
+
+*What good looks like*
+- Engineers openly flag blockers and bad ideas without fear — including to the CTO
+- High performers stay not just for comp, but because they feel ownership and see their growth
+- Quality and speed are both valued — done right and done fast are not opposites
+- New hires notice the culture within their first two weeks and describe it consistently
+
+*The common mistake*
+CTOs delegate culture entirely to HR or an Engineering Manager, then wonder why the culture does not reflect their vision. Culture scales through your direct behaviours and through the managers you promote. If you promote a manager who hoards information or takes credit for their team's work, you have just broadcast the real culture to every engineer in the org. Audit your last three promotions: what signal did they send?
+
+*Your action for today*
+Write down one behaviour you personally exhibit in meetings or Slack that you would NOT want every engineer in your org to copy. Then pick one specific situation this week where you can model the behaviour you actually want — whether that is admitting uncertainty, publicly crediting a junior engineer's idea, or pushing back on a rushed deadline in front of the team.
