@@ -15,3 +15,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-04-01 | Communicating Engineering to the Board |
 | 2026-04-02 | Incident Management & Blameless Post-Mortems |
 | 2026-04-03 | Shifting Security Left: The Secure SDLC |
+| 2026-04-04 | Engineering Culture: How CTOs Build It Intentionally |
