@@ -1,0 +1,35 @@
+name: Daily CTO Topic
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 00:00 UTC = 08:00 KL (UTC+8)
+  workflow_dispatch:       # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Deliver daily YouTube topic
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node scripts/daily-topic.js
+
+      - name: Commit updated topics log
+        run: |
+          git config user.name "CTO Coach Bot"
+          git config user.email "bot@cto-coach"
+          git add topics_log.md
+          git diff --staged --quiet || git commit -m "log: $(date +%Y-%m-%d) YouTube topic"
+          git push
