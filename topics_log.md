@@ -18,3 +18,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-04-04 | Engineering Culture: How CTOs Build It Intentionally |
 | 2026-04-05 | Decision-Making Frameworks for CTOs |
 | 2026-04-05 | [How to Handle Employees Who Undermine Your Authority: Expert Tips](https://youtu.be/7o_8kZ0rAqw) |
+| 2026-04-06 | Managing Up: How CTOs Build Trust with Their CEO |
