@@ -1,7 +1,12 @@
 {
   "functions": {
-    "api/webhook.js": {
-      "maxDuration": 30
+    "api/webhook.js": { "maxDuration": 30 },
+    "api/daily.js": { "maxDuration": 60 }
+  },
+  "crons": [
+    {
+      "path": "/api/daily",
+      "schedule": "0 0 * * *"
     }
-  }
+  ]
 }
