@@ -22,3 +22,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-04-06 | [How to Handle Employees Who Undermine Your Authority: Expert Tips](https://youtu.be/7o_8kZ0rAqw) |
 | 2026-04-07 | Engineering Career Ladders |
 | 2026-04-07 | [How to Handle Employees Who Undermine Your Authority: Expert Tips](https://youtu.be/7o_8kZ0rAqw) |
+| 2026-04-08 | Platform Thinking & Internal Developer Platforms |
