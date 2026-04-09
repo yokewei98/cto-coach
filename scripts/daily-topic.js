@@ -1,112 +1,35 @@
 const fs = require('fs');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const GITHUB_PAT = process.env.GITHUB_PAT;
+const GITHUB_REPO = process.env.GITHUB_REPO;
 
-// --- Pick topic via Gemini ---
+// --- GitHub helpers ---
 
-async function pickTopic(context, topicsLog) {
-  const prompt = `You are a CTO coach. Based on Xavier's profile and past topics, choose ONE specific YouTube search query for today's video recommendation.
-
-Xavier's profile:
-${context}
-
-Past topics covered:
-${topicsLog}
-
-Requirements:
-- Pick a topic NOT already in past topics
-- Make it specific (e.g. "engineering team OKRs", "technical debt strategy CTO", "board communication engineering leader")
-- Optimized as a YouTube search query (5-10 words)
-- Also return a one-sentence reason why this matters to Xavier right now
-
-Return JSON only: {"query": "...", "reason": "..."}`;
-
+async function getFile(path) {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.8, responseMimeType: 'application/json' },
-      }),
-    }
+    `https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`,
+    { headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: 'application/vnd.github.v3+json' } }
   );
+  if (!res.ok) return null;
   const data = await res.json();
-  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
-  return JSON.parse(raw);
+  return { content: Buffer.from(data.content, 'base64').toString('utf-8'), sha: data.sha };
 }
 
-// --- YouTube helpers ---
-
-function parseDurationSeconds(iso) {
-  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-  if (!match) return 0;
-  return (parseInt(match[1] || 0) * 3600) + (parseInt(match[2] || 0) * 60) + parseInt(match[3] || 0);
-}
-
-function formatDuration(iso) {
-  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-  if (!match) return '';
-  const h = parseInt(match[1] || 0);
-  const m = parseInt(match[2] || 0);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
-
-async function searchVideos(query, durationFilter) {
-  const searchUrl = new URL('https://www.googleapis.com/youtube/v3/search');
-  searchUrl.searchParams.set('part', 'snippet');
-  searchUrl.searchParams.set('q', query + ' leadership');
-  searchUrl.searchParams.set('type', 'video');
-  searchUrl.searchParams.set('videoDuration', durationFilter);
-  searchUrl.searchParams.set('maxResults', '20');
-  searchUrl.searchParams.set('relevanceLanguage', 'en');
-  searchUrl.searchParams.set('key', YOUTUBE_API_KEY);
-
-  const res = await fetch(searchUrl.toString());
-  const data = await res.json();
-  return data.items?.map(i => i.id.videoId).filter(Boolean) ?? [];
-}
-
-async function getVideoDetails(ids) {
-  const url = new URL('https://www.googleapis.com/youtube/v3/videos');
-  url.searchParams.set('part', 'contentDetails,snippet,statistics');
-  url.searchParams.set('id', ids.join(','));
-  url.searchParams.set('key', YOUTUBE_API_KEY);
-
-  const res = await fetch(url.toString());
-  const data = await res.json();
-  return data.items ?? [];
-}
-
-async function findVideo(query) {
-  // Search both medium (4-20min) and long (>20min) to cover 10min-1hr range
-  const [mediumIds, longIds] = await Promise.all([
-    searchVideos(query, 'medium'),
-    searchVideos(query, 'long'),
-  ]);
-
-  const allIds = [...new Set([...mediumIds, ...longIds])];
-  if (!allIds.length) return null;
-
-  const videos = await getVideoDetails(allIds);
-
-  // Filter: 10min (600s) to 1hr (3600s)
-  const valid = videos.filter(v => {
-    const secs = parseDurationSeconds(v.contentDetails.duration);
-    return secs >= 600 && secs <= 3600;
+async function putFile(path, content, sha, message) {
+  const body = { message, content: Buffer.from(content).toString('base64') };
+  if (sha) body.sha = sha;
+  await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${GITHUB_PAT}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
   });
-
-  if (!valid.length) return null;
-
-  // Pick highest view count
-  valid.sort((a, b) =>
-    parseInt(b.statistics?.viewCount || 0) - parseInt(a.statistics?.viewCount || 0)
-  );
-  return valid[0];
 }
 
 // --- Telegram ---
@@ -131,44 +54,73 @@ async function sendTelegram(text) {
   }
 }
 
+// --- Generate daily content via Gemini ---
+
+async function generateDailyContent(context, topicsLog) {
+  const prompt = `You are a Goals Coach. Write today's daily lesson for Xavier.
+
+Xavier's profile:
+${context}
+
+Past topics already covered (do NOT repeat):
+${topicsLog}
+
+Topic areas to rotate through:
+- Goal-setting frameworks (OKRs, SMART, BHAG, 12-Week Year, Rocks/EOS)
+- Psychology of goals (motivation, identity-based habits, intrinsic vs extrinsic)
+- Vision & life design (ikigai, life wheel, personal mission, long-term thinking)
+- Execution & focus (deep work, time blocking, energy management)
+- Accountability systems (habit tracking, reviews, coaching, masterminds)
+- Goal-setting for teams and organisations
+- Overcoming obstacles (procrastination, fear, limiting beliefs)
+- High-performer habits (reflection, journaling, morning routines)
+- Measuring progress (leading vs lagging indicators, milestone design)
+- Goal psychology research (Locke & Latham, Dweck, Deci & Ryan)
+
+Write a fresh topic NOT in past topics. Return JSON only:
+{
+  "title": "short punchy title (max 8 words)",
+  "body": "paragraph one (3-4 sentences of insight)\\n\\nparagraph two (3-4 sentences of practical application)"
+}`;
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.8, responseMimeType: 'application/json' },
+      }),
+    }
+  );
+  const data = await res.json();
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
+  return JSON.parse(raw);
+}
+
 // --- Main ---
 
 async function main() {
-  const context = fs.existsSync('context.md') ? fs.readFileSync('context.md', 'utf-8') : '(No context yet)';
-  const topicsLog = fs.existsSync('topics_log.md') ? fs.readFileSync('topics_log.md', 'utf-8') : '';
+  const [ctxFile, logFile] = await Promise.all([
+    getFile('context.md'),
+    getFile('topics_log.md'),
+  ]);
 
-  console.log('Picking topic via Gemini...');
-  const { query, reason } = await pickTopic(context, topicsLog);
-  console.log(`Query: ${query}`);
-  console.log(`Reason: ${reason}`);
+  const context = ctxFile?.content ?? '(No context yet)';
+  const topicsLog = logFile?.content ?? '';
 
-  console.log('Searching YouTube...');
-  const video = await findVideo(query);
-  if (!video) {
-    await sendTelegram('Could not find a suitable YouTube video today. Will try again tomorrow.');
-    process.exit(1);
-  }
+  console.log('Generating daily content via Gemini...');
+  const { title, body } = await generateDailyContent(context, topicsLog);
+  console.log(`Title: ${title}`);
 
-  const title = video.snippet.title;
-  const channel = video.snippet.channelTitle;
-  const duration = formatDuration(video.contentDetails.duration);
-  const url = `https://youtu.be/${video.id}`;
-
-  const message =
-    `*Today's CTO Watch*\n\n` +
-    `*${title}*\n` +
-    `${channel} · ${duration}\n\n` +
-    `${reason}\n\n` +
-    `${url}`;
-
+  const message = `*${title}*\n\n${body}`;
   await sendTelegram(message);
   console.log('Sent to Telegram.');
 
-  // Append to topics_log.md
   const today = new Date().toISOString().split('T')[0];
-  let log = topicsLog.trimEnd();
-  log += `\n| ${today} | [${title}](${url}) |\n`;
-  fs.writeFileSync('topics_log.md', log);
+  const updatedLog = topicsLog.trimEnd() + `\n| ${today} | ${title} |\n`;
+  await putFile('topics_log.md', updatedLog, logFile?.sha ?? null, `log: ${today} — ${title}`);
   console.log('topics_log.md updated.');
 }
 
