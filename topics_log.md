@@ -28,3 +28,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-04-09 | [How to Handle Employees Who Undermine Your Authority: Expert Tips](https://youtu.be/7o_8kZ0rAqw) |
 | 2026-04-10 | Retention Strategies: Keeping Your Best Engineers |
 | 2026-04-11 | Roadmap Prioritization: Making and Communicating Hard Trade-offs |
+| 2026-04-12 | Technical Storytelling: How CTOs Write for Executives |
