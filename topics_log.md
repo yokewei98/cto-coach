@@ -33,3 +33,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-04-14 | On-Call Culture: Building Sustainable Engineering Operations |
 | 2026-04-15 | Managing Engineering Underperformers: The Compassionate Accountability Framework |
 | 2026-04-17 | SOC2 Compliance: What CTOs Need to Know |
+| 2026-04-18 | Avoiding CTO Burnout: Sustainable Leadership Habits |
