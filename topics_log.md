@@ -36,3 +36,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-04-18 | Avoiding CTO Burnout: Sustainable Leadership Habits |
 | 2026-04-20 | Team Topologies: Structuring Engineering for Flow |
 | 2026-04-22 | Stakeholder Management: Aligning Engineering with the Business |
+| 2026-04-24 | The 12-Week Year for Engineering Leaders |
