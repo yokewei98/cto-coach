@@ -38,3 +38,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-04-22 | Stakeholder Management: Aligning Engineering with the Business |
 | 2026-04-24 | The 12-Week Year for Engineering Leaders |
 | 2026-04-26 | The BHAG: How CTOs Set a 10-Year Technical Vision |
+| 2026-04-27 | EOS Rocks: The Quarterly Execution Framework Every CTO Should Know |
