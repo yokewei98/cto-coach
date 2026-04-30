@@ -40,3 +40,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-04-26 | The BHAG: How CTOs Set a 10-Year Technical Vision |
 | 2026-04-27 | EOS Rocks: The Quarterly Execution Framework Every CTO Should Know |
 | 2026-04-29 | The ROI of Engineering Investments: Making the Business Case for Technical Work |
+| 2026-04-30 | Outcome Goals vs. Process Goals |
