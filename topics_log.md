@@ -42,3 +42,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-04-29 | The ROI of Engineering Investments: Making the Business Case for Technical Work |
 | 2026-04-30 | Outcome Goals vs. Process Goals |
 | 2026-05-02 | Identity-Based Goal Setting: Become the Person Who Achieves the Goal |
+| 2026-05-04 | The SMART Goal Framework: Turning Ambition into Achievable Targets |
