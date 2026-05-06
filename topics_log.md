@@ -44,3 +44,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-05-02 | Identity-Based Goal Setting: Become the Person Who Achieves the Goal |
 | 2026-05-04 | The SMART Goal Framework: Turning Ambition into Achievable Targets |
 | 2026-05-05 | Ikigai: The Japanese Framework for Purpose-Driven Goals |
+| 2026-05-06 | The Habit Loop: Designing Systems That Make Goals Inevitable |
