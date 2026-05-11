@@ -46,3 +46,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-05-05 | Ikigai: The Japanese Framework for Purpose-Driven Goals |
 | 2026-05-06 | The Habit Loop: Designing Systems That Make Goals Inevitable |
 | 2026-05-09 | The Quarterly Review: How High Performers Reset and Recommit |
+| 2026-05-11 | Accountability Systems: How High Performers Stay on Track |
