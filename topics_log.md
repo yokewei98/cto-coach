@@ -48,3 +48,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-05-09 | The Quarterly Review: How High Performers Reset and Recommit |
 | 2026-05-11 | Accountability Systems: How High Performers Stay on Track |
 | 2026-05-12 | WOOP: The Science-Backed Framework for Overcoming Goal Obstacles |
+| 2026-05-13 | The 4 Disciplines of Execution (4DX) |
