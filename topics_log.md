@@ -51,3 +51,4 @@ Each row represents a topic that has already been delivered — the agent will n
 | 2026-05-13 | The 4 Disciplines of Execution (4DX) |
 | 2026-05-14 | Energy Management: The Foundation of Sustained Goal Achievement |
 | 2026-05-16 | Implementation Intentions: The If-Then Planning Technique That Doubles Your Success Rate |
+| 2026-05-17 | The Compound Effect: How Tiny Daily Choices Create Extraordinary Results |
